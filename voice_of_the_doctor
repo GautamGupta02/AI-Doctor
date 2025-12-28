@@ -1,0 +1,41 @@
+#Step1a: Setup Text to Speech–TTS–model with gTTS
+import os
+from gtts import gTTS
+
+def text_to_speech_with_gtts_old(input_text, output_filepath):
+    language="en"
+
+    audioobj= gTTS(
+        text=input_text,
+        lang=language,
+        slow=False
+    )
+    audioobj.save(output_filepath)
+
+
+input_text="Hi this is Ai with Gautam "
+#text_to_speech_with_gtts_old(input_text=input_text, output_filepath="gtts_testing.mp3")
+
+
+#Step2: Use Model for Text output to Voice
+
+from gtts import gTTS
+from playsound import playsound
+import uuid
+
+def text_to_speech_with_gtts(text):
+    filename = f"final_{uuid.uuid4().hex}.mp3"
+
+    tts = gTTS(text=text, lang="en", slow=False)
+    tts.save(filename)
+
+    playsound(filename)
+    return filename   # ✅ MUST return path
+
+
+
+
+if __name__ == "__main__":
+    text_to_speech_with_gtts(
+        "Hello, I am your AI doctor. How can I help you today?"
+    )
