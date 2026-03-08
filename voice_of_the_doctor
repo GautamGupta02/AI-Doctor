@@ -1,41 +1,94 @@
-#Step1a: Setup Text to Speech–TTS–model with gTTS
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
-from gtts import gTTS
+import base64
+from groq import Groq
 
-def text_to_speech_with_gtts_old(input_text, output_filepath):
-    language="en"
+# Load API key
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY not found")
 
-    audioobj= gTTS(
-        text=input_text,
-        lang=language,
-        slow=False
+# Shared Groq client
+client = Groq(api_key=GROQ_API_KEY)
+
+
+# Image Encoding
+
+def encode_image(image_path):
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+
+# Domain Detection (NEW)
+
+def detect_domain_from_image(encoded_image):
+    """
+    Detect whether the image is related to Human Health or Crop Disease.
+    Returns exactly one of:
+    - 'Human Health'
+    - 'Crop Disease'
+    """
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        "Classify this image strictly as either Human Health or Crop Disease. "
+                        "Respond with only one of these exact phrases and nothing else."
+                    )
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{encoded_image}"
+                    }
+                }
+            ]
+        }
+    ]
+
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=messages
     )
-    audioobj.save(output_filepath)
+
+    result = response.choices[0].message.content.strip()
+
+    if result in ["Human Health", "Crop Disease"]:
+        return result
+
+    # Safe fallback
+    return "Human Health"
 
 
-input_text="Hi this is Ai with Gautam "
-#text_to_speech_with_gtts_old(input_text=input_text, output_filepath="gtts_testing.mp3")
+def analyze_image_with_query(query, model, encoded_image):
+    """
+    Main vision + reasoning call
+    """
 
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": query},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{encoded_image}"
+                    }
+                }
+            ]
+        }
+    ]
 
-#Step2: Use Model for Text output to Voice
-
-from gtts import gTTS
-from playsound import playsound
-import uuid
-
-def text_to_speech_with_gtts(text):
-    filename = f"final_{uuid.uuid4().hex}.mp3"
-
-    tts = gTTS(text=text, lang="en", slow=False)
-    tts.save(filename)
-
-    playsound(filename)
-    return filename   # ✅ MUST return path
-
-
-
-
-if __name__ == "__main__":
-    text_to_speech_with_gtts(
-        "Hello, I am your AI doctor. How can I help you today?"
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages
     )
+
+    return response.choices[0].message.content
